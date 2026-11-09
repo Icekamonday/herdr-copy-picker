@@ -54,7 +54,7 @@ END = 'END_OF_STEPS'
 # in the shell of the pane, as the user would type it there: the $SHELL that
 # the pane inherited may name another shell, such as the login shell
 RUNNER = '''\
-# one run of herdr-claude-copy: each block of its input is a step under script
+# one run of herdr-copy-picker: each block of its input is a step under script
 run={run}
 step_shell=$(command -v {name}) || {{
     echo "add {name} to the PATH: the steps of this run use it" >&2
@@ -116,7 +116,7 @@ class NoRun(Exception):
 
 def home():
     return os.path.join(os.environ.get('XDG_STATE_HOME')
-                        or os.path.expanduser('~/.local/state'), 'herdr-claude-copy', 'runs')
+                        or os.path.expanduser('~/.local/state'), 'herdr-copy-picker', 'runs')
 
 
 def at_prompt(info):

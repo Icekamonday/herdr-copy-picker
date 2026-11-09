@@ -177,7 +177,7 @@ class Picking(unittest.TestCase):
 
     def test_the_keys_file_lies_beside_the_sources_and_may_be_absent(self):
         self.assertEqual(self.copy.keys_file(), os.path.join(
-            os.environ['XDG_CONFIG_HOME'], 'herdr-claude-copy', 'keys'))
+            os.environ['XDG_CONFIG_HOME'], 'herdr-copy-picker', 'keys'))
         self.assertEqual(self.copy.bindings(), (self.copy.LETTERS, ''))
 
     def test_a_letter_of_the_keys_file_replaces_the_default_letter(self):
@@ -845,7 +845,7 @@ class Picking(unittest.TestCase):
                 unittest.mock.patch.object(self.copy, 'hold') as hold, \
                 contextlib.redirect_stdout(io.StringIO()):
             self.copy.say('copied 1 block, 1 line', refused=refused)
-        log = pathlib.Path(room, 'herdr-claude-copy', 'picker.log')
+        log = pathlib.Path(room, 'herdr-copy-picker', 'picker.log')
         return hold.call_args_list, log.read_text() if log.exists() else None
 
     def test_a_toast_shown_holds_nothing_and_logs_nothing(self):
@@ -1129,28 +1129,28 @@ class Running(unittest.TestCase):
 
     def test_the_shell_gets_the_script_and_the_blocks_with_no_enter(self):
         with unittest.mock.patch.dict(os.environ, {'HOME': '/home/u'}):
-            text = self.running.typed('/home/u/.local/state/herdr-claude-copy/runs/d-3',
+            text = self.running.typed('/home/u/.local/state/herdr-copy-picker/runs/d-3',
                                       ['echo a', 'ls\npwd'])
-        self.assertEqual(text, "sh ~/.local/state/herdr-claude-copy/runs/d-3/run "
+        self.assertEqual(text, "sh ~/.local/state/herdr-copy-picker/runs/d-3/run "
                                "<<'END_OF_STEPS'\n# ---- step 1\necho a\n"
                                "# ---- step 2\nls\npwd\nEND_OF_STEPS")
 
     def test_a_run_starts_as_a_script_in_a_directory_of_its_own(self):
         """The directory of the runs and of the locks may come from a umask
         that lets the group in."""
-        mine = os.path.join(self.room, 'herdr-claude-copy')
+        mine = os.path.join(self.room, 'herdr-copy-picker')
         os.mkdir(mine)
         os.chmod(mine, 0o775)
         run = self.running.prepare({'pane_id': 'w3:p1'}, {'pane_id': 'w3:p2'}, 'sh',
                                    day='2026-10-27')
-        self.assertEqual(run, os.path.join(self.room, 'herdr-claude-copy', 'runs',
+        self.assertEqual(run, os.path.join(self.room, 'herdr-copy-picker', 'runs',
                                            '2026-10-27-1'))
         self.assertEqual(os.listdir(run), ['run'])
         for mine in (run, os.path.dirname(os.path.dirname(run))):
             self.assertEqual(os.stat(mine).st_mode & 0o777, 0o700, mine)
 
     def test_a_run_never_writes_through_a_link_planted_at_its_path(self):
-        root = os.path.join(self.room, 'herdr-claude-copy', 'runs')
+        root = os.path.join(self.room, 'herdr-copy-picker', 'runs')
         os.makedirs(root)
         elsewhere = os.path.join(self.room, 'elsewhere')
         os.mkdir(elsewhere)
@@ -1269,7 +1269,7 @@ class Waking(unittest.TestCase):
     def setUp(self):
         self.room = tempfile.mkdtemp(prefix='herdr-wake-')
         self.addCleanup(shutil.rmtree, self.room)
-        self.runs = os.path.join(self.room, 'herdr-claude-copy', 'runs')
+        self.runs = os.path.join(self.room, 'herdr-copy-picker', 'runs')
         os.makedirs(self.runs)
         import waking
         self.waking = waking
@@ -1760,7 +1760,7 @@ class Finding(unittest.TestCase):
 
     def test_of_two_roots_the_newest_write_wins(self):
         container = os.path.join(self.room, 'dc', 'projects')
-        os.makedirs(os.path.join(self.room, 'config', 'herdr-claude-copy'))
+        os.makedirs(os.path.join(self.room, 'config', 'herdr-copy-picker'))
         with open(self.store.sources_file(), 'w') as fp:
             fp.write(f'{container}\n')
         self.transcript(ONE, titled('build'), age=300)
@@ -1770,7 +1770,7 @@ class Finding(unittest.TestCase):
     def test_the_sources_file_adds_to_the_host_paths(self):
         host = (self.root, self.state)
         self.assertEqual(self.store.sources(), [host])
-        os.makedirs(os.path.join(self.room, 'config', 'herdr-claude-copy'))
+        os.makedirs(os.path.join(self.room, 'config', 'herdr-copy-picker'))
         with open(self.store.sources_file(), 'w') as fp:
             fp.write('# a devcontainer\n\n'
                      '~/dc/projects   ~/dc/drop  # the bind and the drop\n/x/projects\n')
@@ -1841,7 +1841,7 @@ class Runs(unittest.TestCase):
             out = run()
             asked = pathlib.Path(log).read_text()
         self.assertEqual(out.returncode, 1)
-        sources = os.path.join(os.environ['XDG_CONFIG_HOME'], 'herdr-claude-copy', 'sources')
+        sources = os.path.join(os.environ['XDG_CONFIG_HOME'], 'herdr-copy-picker', 'sources')
         self.assertIn(f'add the projects directory of this session to {sources}', out.stdout)
         self.assertIn('notification.show copy add the projects directory', asked)
 

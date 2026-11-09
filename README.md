@@ -1,4 +1,4 @@
-# herdr-claude-copy
+# herdr-copy-picker
 
 A Herdr plugin that copies the blocks of Claude Code's answers as Claude wrote them, or puts their commands in Claude's prompt box or in a shell of the tab.
 
@@ -17,7 +17,7 @@ A mouse copy takes the screen grid. Claude Code draws a code block two columns i
 ## Install
 
 ```sh
-herdr plugin install Icekamonday/herdr-claude-copy
+herdr plugin install Icekamonday/herdr-copy-picker
 ```
 
 A plugin manifest can't declare a key, so add the binding to `~/.config/herdr/config.toml`:
@@ -26,13 +26,13 @@ A plugin manifest can't declare a key, so add the binding to `~/.config/herdr/co
 [[keys.command]]
 key = "prefix+y"
 type = "shell"
-command = "herdr plugin action invoke pick --plugin herdr-claude-copy"
+command = "herdr plugin action invoke pick --plugin herdr-copy-picker"
 description = "copy a block of Claude's last answers"
 ```
 
 Then reload the configuration with `herdr server reload-config`.
 
-The picker says what it did in a Herdr toast, which shows only with `delivery = "herdr"` under `[ui.toast]` in the same file. If Herdr shows no toast, the popup keeps the line on screen for a second, or until you press a key after a refusal. `~/.local/state/herdr-claude-copy/picker.log` says why the toast didn't show.
+The picker says what it did in a Herdr toast, which shows only with `delivery = "herdr"` under `[ui.toast]` in the same file. If Herdr shows no toast, the popup keeps the line on screen for a second, or until you press a key after a refusal. `~/.local/state/herdr-copy-picker/picker.log` says why the toast didn't show.
 
 ## Use
 
@@ -71,7 +71,7 @@ The `v` key puts the code that `$` copies in the free shell as it is, and sends 
 The shell shows the blocks as they will run, behind the script of the run:
 
 ```sh
-sh ~/.local/state/herdr-claude-copy/runs/2026-10-28-3/run <<'END_OF_STEPS'
+sh ~/.local/state/herdr-copy-picker/runs/2026-10-28-3/run <<'END_OF_STEPS'
 # ---- step 1
 make test
 # ---- step 2
@@ -100,11 +100,11 @@ When the run is over, Claude hears of it: a waiter types into Claude's prompt bo
 
 The waiter types only into a box that can take a line. Claude must not be working or waiting on a dialog, and the box must be on screen, empty and not in shell mode. A prompt suggestion of Claude Code counts as empty. The waiter reads the pane of Claude even when its tab isn't displayed, so you can switch to another space during the run. If the box can't take the line, the waiter looks again every 2 seconds. It gives up 24 hours after the end of the run, or when the pane of Claude closes or no longer runs Claude. To cancel a wake, create the file `no-wake` in the directory of the run: the run shows the command when it ends. `wake.log` says how the wake went.
 
-If two runs of one Claude end together, the second wake waits for the turn that the first one starts. For that, each waiter takes a lock on the pane of Claude: an empty file `wake-<pane id>.lock` in `~/.local/state/herdr-claude-copy/`, next to `runs/`. These files are harmless, and you can delete them when no run is waiting.
+If two runs of one Claude end together, the second wake waits for the turn that the first one starts. For that, each waiter takes a lock on the pane of Claude: an empty file `wake-<pane id>.lock` in `~/.local/state/herdr-copy-picker/`, next to `runs/`. These files are harmless, and you can delete them when no run is waiting.
 
 ## Rebind the keys
 
-To give an action another key, write one `action = key` line per binding in `~/.config/herdr-claude-copy/keys`, or in `$XDG_CONFIG_HOME/herdr-claude-copy/keys` if you set that variable:
+To give an action another key, write one `action = key` line per binding in `~/.config/herdr-copy-picker/keys`, or in `$XDG_CONFIG_HOME/herdr-copy-picker/keys` if you set that variable:
 
 ```
 # the paste on ù, the help on h
@@ -133,7 +133,7 @@ If a line is wrong, the picker refuses the whole file and uses the default keys.
 
 ## A session in a container
 
-The picker reads the transcripts under `~/.claude/projects`, or `$CLAUDE_CONFIG_DIR/projects`. A Claude Code that runs in a container writes them in another directory. Add that directory to `~/.config/herdr-claude-copy/sources`, one per line:
+The picker reads the transcripts under `~/.claude/projects`, or `$CLAUDE_CONFIG_DIR/projects`. A Claude Code that runs in a container writes them in another directory. Add that directory to `~/.config/herdr-copy-picker/sources`, one per line:
 
 ```
 # projects directory                 payload directory (optional)
@@ -148,7 +148,7 @@ Each line adds to the host directory, and never replaces it. The optional second
 - The `*` key puts the code in a shell and sends no Enter. When you press Enter, the shell runs the blocks with your rights, so read them first. The picker removes control characters from the blocks, as for the `!` key.
 - The `v` key puts the code in bash, zsh or fish and sends no Enter, without the control characters. When you press Enter, the shell runs the code with your rights, so read it first. If bracketed paste is off in that shell, each line runs as it arrives.
 - The wake that the waiter types into Claude's prompt box holds the name of the run, the status of each step and the directory of the run. It never holds what a step wrote.
-- `script` follows a link planted at the path of its log. If your agent can write the runs directory, it can plant one and make the shell write over another of your files. If it can write the directory above, it can also hold the lock of a wake and keep Claude from hearing of its runs. Check that the sandbox of your agent can't write `~/.local/state/herdr-claude-copy`.
+- `script` follows a link planted at the path of its log. If your agent can write the runs directory, it can plant one and make the shell write over another of your files. If it can write the directory above, it can also hold the lock of a wake and keep Claude from hearing of its runs. Check that the sandbox of your agent can't write `~/.local/state/herdr-copy-picker`.
 - Herdr doesn't review or sandbox plugins. This one reads your Claude Code transcripts and drives panes through the Herdr socket: read `bin/` before you install it.
 
 ## Development

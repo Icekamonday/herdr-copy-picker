@@ -153,7 +153,7 @@ def project(cwd):
 
 def sources_file():
     return os.path.join(os.environ.get('XDG_CONFIG_HOME')
-                        or os.path.expanduser('~/.config'), 'herdr-claude-copy', 'sources')
+                        or os.path.expanduser('~/.config'), 'herdr-copy-picker', 'sources')
 
 
 def sources():
