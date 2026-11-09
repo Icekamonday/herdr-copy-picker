@@ -1,8 +1,8 @@
 id = "herdr-copy-picker"
 name = "Copy picker"
-version = "0.5.4"
+version = "0.6.0"
 min_herdr_version = "0.9.0"
-description = "Copy Claude's code blocks without the indent and the line breaks of the screen, put them in Claude's prompt box, or run them in a shell of the tab and wake Claude at the end"
+description = "Copy the code blocks of Claude Code and Codex answers without the indent and the line breaks of the screen, or run them in a shell of the tab"
 platforms = ["linux"]
 
 # a popup, so that the picker knows the pane the key was pressed in: a
@@ -19,7 +19,7 @@ command = ["./bin/copy"]
 
 [[actions]]
 id = "pick"
-title = "Copy from the answers of Claude"
+title = "Copy from the answers of the agent"
 contexts = ["workspace"]
 command = ["herdr", "plugin", "pane", "open", "--plugin", "herdr-copy-picker",
            "--entrypoint", "picker"]

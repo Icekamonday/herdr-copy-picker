@@ -11,3 +11,7 @@ If Claude Code changes how it titles a pane, for example with a new transient ti
 ## The free shell
 
 `running.at_prompt` decides that a shell is at its prompt: Herdr reports the foreground process group of the pane as the shell itself. `bin/busy`, a watcher of the private setup, uses the same rule to mark a pane as busy. If Herdr changes `pane.process_info`, change both.
+
+## The Codex reader
+
+`bin/codex.py` loads `codex_reader.py` of the private setup rather than copying it, and calls `rollout_of` and `meta_of`, so a change of their contract must reach this plugin. The rule for a pane with no session id is its own: the private setup takes the newest rollout of the directory, where the picker refuses more than one, since a panel can afford a wrong guess and a copy cannot.

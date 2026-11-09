@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""Show Claude's last answers block by block, and copy the blocks you pick.
+"""Show the last answers of an agent block by block, and copy the blocks you pick.
 
 A copy from the screen is a copy of the grid. Claude draws a code block two
 columns in, and wraps it at the width of the pane, so a copied block keeps
@@ -16,6 +16,10 @@ The popup gives the picker the keys, and that pane gives it the agent.
 
 The * key types the shell blocks into a free shell of the tab, as a run of
 steps: bin/running.py says how. The v key types the code there as it is.
+
+On a Codex pane the answers come from the rollout: bin/codex.py reads them. The
+prompt box and the wake of a run stay with Claude, since the picker can tell
+only the box of Claude from what is drawn around it.
 """
 
 import base64
@@ -38,6 +42,7 @@ except ImportError:
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import api
+import codex
 import prompting
 import running
 import sessions
@@ -107,6 +112,9 @@ SCROLLS = {'page-down': 1, 'page-up': -1}
 TO_RUN = ('claude', 'shell', 'run', 'paste')
 FOOTER = ('↑↓ move · enter copy · {claude} for Claude · {shell} for a shell'
           ' · {run} for a run · space mark · {all} all · {help} help · {quit} quit')
+CODEX_FOOTER = ('↑↓ move · enter copy · {shell} for a shell'
+                ' · {run} for a run · space mark · {all} all · {help} help · {quit} quit')
+NO_BOX = '{claude} is for Claude: {shell} copies the code for a shell'
 # the keys of each row are the actions whose keys it shows, and a text names a
 # key by its action in braces
 HELP = (
@@ -355,6 +363,10 @@ def pages(path):
     return [paged(answer['prompt'], answer['messages']) for answer in answers(path)]
 
 
+def codex_pages(path):
+    return [paged(answer['prompt'], answer['messages']) for answer in codex.answers(path, CUT)]
+
+
 def shown(book, state):
     """The page on screen: the last message of its turn, or every message."""
     page = book[state['page']]
@@ -461,10 +473,11 @@ def names(keys):
     return {action: letter or SHOWN.get(action, '') for action, letter in keys.items()}
 
 
-def helped(keys):
+def helped(keys, on_codex=False):
     """The rows of the help, with the keys as they are bound."""
     named = names(keys)
-    return [(label(keys, actions), what.format_map(named)) for actions, what in HELP]
+    return [(label(keys, actions), what.format_map(named)) for actions, what in HELP
+            if not (on_codex and ('claude' in actions or '{claude}' in what))]
 
 
 def action_of(key, keys):
@@ -557,7 +570,7 @@ def commands(state, page):
     return [found[i] for i in picked if found[i]['kind'] == 'code']
 
 
-def prepared(done, state, page):
+def prepared(done, state, page, keys=LETTERS, on_codex=False):
     """What a key copies or runs, and what it is called.
 
     Enter copies the selection as written. ! and $ copy its code alone, one
@@ -568,6 +581,8 @@ def prepared(done, state, page):
     out the prose. v types the code of $ into a shell, such a block included:
     the user reads it there and runs it by hand.
     """
+    if done == 'claude' and on_codex:
+        raise Refused(NO_BOX.format_map(names(keys)))
     if done == 'copy':
         return selection(state, page)
     code = commands(state, page)
@@ -833,7 +848,7 @@ def heading(book, state, keys=LETTERS):
     return line
 
 
-def draw(screen, state, book, prompt, rows, look, keys, trouble):
+def draw(screen, state, book, prompt, rows, look, keys, trouble, on_codex=False):
     """The answer under its prompt, or the help when it is asked for.
 
     The help keeps the fault of a keys file in sight after the first key has
@@ -851,7 +866,7 @@ def draw(screen, state, book, prompt, rows, look, keys, trouble):
                 put(screen, row, 3, ''.join(text for text, _ in runs), look['warn'])
                 row += 1
             row += 1
-        lines = helped(keys)
+        lines = helped(keys, on_codex)
         # a letter bound beside the named keys of an action widens its label
         column = max(17, 5 + max(len(shown_keys) for shown_keys, _ in lines))
         for y, (shown_keys, what) in enumerate(lines, row):
@@ -886,11 +901,12 @@ def draw(screen, state, book, prompt, rows, look, keys, trouble):
     if state['said']:
         put(screen, height - 1, 1, state['said'], look['warn'])
     else:
-        put(screen, height - 1, 1, status + FOOTER.format_map(names(keys)), look['help'])
+        footer = CODEX_FOOTER if on_codex else FOOTER
+        put(screen, height - 1, 1, status + footer.format_map(names(keys)), look['help'])
     screen.refresh()
 
 
-def pick(book, keys, trouble):
+def pick(book, keys, trouble, on_codex=False):
     """Run the picker: the action that ended it, the text to copy and what it
     is called, or None if the user quits."""
     def run(screen):
@@ -909,7 +925,7 @@ def pick(book, keys, trouble):
             prompt, rows = drawn[shape]
             body = max(1, height - len(prompt) - 3)
             state = dict(state, top=view(rows, state, body))
-            draw(screen, state, book, prompt, rows, look, keys, trouble)
+            draw(screen, state, book, prompt, rows, look, keys, trouble, on_codex)
             key = screen.get_wch()
             if isinstance(key, int):
                 key = curses.keyname(key).decode()
@@ -918,7 +934,7 @@ def pick(book, keys, trouble):
             state, done = step(dict(state, said=''), key, book, body, keys)
             if done in ('copy', *TO_RUN):
                 try:
-                    return (done, *prepared(done, state, shown(book, state)))
+                    return (done, *prepared(done, state, shown(book, state), keys, on_codex))
                 except Refused as why:
                     state = dict(state, said=str(why))
             if done == 'quit':
@@ -1026,7 +1042,8 @@ def launch(agent, blocks, what, keys=LETTERS):
         shell, name = running.free_shell(api.panes(), agent, prompting.standing())
     except running.NoRun as why:
         return refuse(str(why))
-    directory = running.prepare(agent, shell, name, again=keys['run'])
+    directory = running.prepare(agent, shell, name, again=keys['run'],
+                                wake=agent.get('agent') != codex.KIND)
     type_into(shell['pane_id'], running.typed(directory, blocks))
     say(f'typed {what}, press Enter there to start the run in {directory}')
     return 0
@@ -1051,12 +1068,14 @@ def main():
     pane = prompting.target(panes, prompting.standing())
     if not pane:
         return refuse('no agent in this tab, or two and you stand in neither')
+    on_codex = pane.get('agent') == codex.KIND
     try:
-        book = pages(sessions.find(pane, panes))
+        book = codex_pages(codex.find(pane, panes)) if on_codex \
+            else pages(sessions.find(pane, panes))
     except sessions.NoTranscript as why:
         return refuse(str(why))
     if not book:
-        return refuse('no answer of Claude in this tab yet')
+        return refuse(f"no answer of {'Codex' if on_codex else 'Claude'} in this tab yet")
 
     # if no terminal reads the output, there is no picker, and the blocks of
     # the last answer go to the pipe instead
@@ -1067,7 +1086,7 @@ def main():
         return 0
 
     keys, trouble = bindings()
-    picked = pick(book, keys, trouble)
+    picked = pick(book, keys, trouble, on_codex)
     if not picked:
         return 0
     done, text, what = picked
