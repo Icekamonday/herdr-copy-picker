@@ -1846,5 +1846,192 @@ class Runs(unittest.TestCase):
         self.assertIn('notification.show copy add the projects directory', asked)
 
 
+class Codex(unittest.TestCase):
+    """What the picker does on a Codex pane: the rollout it reads, what it
+    makes of the records, and what stays with Claude."""
+
+    FIXTURE = os.path.join(HERE, 'fixtures', 'rollout.jsonl')
+    STAND_IN = os.path.join(HERE, 'stub', 'codex_reader.py')
+    SID = 'aaaa1111'
+    CWD = '/home/user/dev/app'
+
+    def setUp(self):
+        loader = importlib.machinery.SourceFileLoader(
+            'copy_picker', os.path.join(BIN, 'copy'))
+        spec = importlib.util.spec_from_loader('copy_picker', loader)
+        self.copy = importlib.util.module_from_spec(spec)
+        loader.exec_module(self.copy)
+        self.codex = self.copy.codex
+        self.room = tempfile.mkdtemp(prefix='herdr-codex-test-')
+        self.addCleanup(shutil.rmtree, self.room)
+        self.day = os.path.join(self.room, 'sessions', '2026', '01', '02')
+        os.makedirs(self.day)
+        patched = unittest.mock.patch.dict(os.environ, {
+            'CODEX_HOME': self.room, 'XDG_CONFIG_HOME': os.path.join(self.room, 'config')})
+        patched.start()
+        self.addCleanup(patched.stop)
+
+    def configure(self, reader=None):
+        path = self.codex.reader_file()
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        pathlib.Path(path).write_text(f'{reader or self.STAND_IN}\n')
+
+    def rollout(self, sid, cwd=None, source='cli'):
+        """A rollout with the session id and the meta that a test asks for."""
+        path = os.path.join(self.day, f'rollout-2026-01-02T10-00-00-{sid}.jsonl')
+        meta = {'type': 'session_meta',
+                'payload': {'id': sid, 'cwd': cwd or self.CWD, 'source': source}}
+        write_transcript(path, [meta])
+        return path
+
+    def pane(self, sid=None, pane_id='p1'):
+        pane = {'pane_id': pane_id, 'agent': 'codex', 'cwd': self.CWD}
+        return dict(pane, agent_session={'value': sid}) if sid else pane
+
+    def test_the_turns_of_a_rollout(self):
+        """Injected and developer messages open no turn, tool records join
+        none, and a compaction leaves the turns around it."""
+        found = self.codex.answers(self.FIXTURE, 'cut')
+        self.assertEqual([(turn['prompt'], turn['messages']) for turn in found], [
+            ('what is the date?', ['Run this:\n\n```sh\ndate\n```']),
+            ('and the tests?', ['Looking.', 'Then:\n\n```sh\nmake test\n```']),
+            ('and after the compaction?', ['Still here.']),
+        ])
+
+    def test_the_last_message_is_the_answer_and_w_shows_the_commentary(self):
+        page = self.copy.codex_pages(self.FIXTURE)[1]
+        self.assertEqual([block['text'] for block in page['blocks']],
+                         ['Then:', 'make test'])
+        self.assertEqual(page['messages'], 2)
+        self.assertEqual(page['every']['blocks'][0]['text'], 'Looking.')
+
+    def test_a_cut_tail_keeps_its_turn_under_the_cut_prompt(self):
+        path = os.path.join(self.room, 'cut.jsonl')
+        answer = {'type': 'response_item', 'payload': {
+            'type': 'message', 'role': 'assistant',
+            'content': [{'type': 'output_text', 'text': 'Kept.'}]}}
+        write_transcript(path, [answer])
+        with open(path, 'r+') as fp:
+            line = fp.read()
+            fp.seek(0)
+            fp.write('{"cut": "' + 'x' * 64 + '"}\n' + line)
+        with unittest.mock.patch.object(self.codex.sessions, 'FIND_WINDOW', len(line) + 8):
+            found = self.codex.answers(path, 'the cut')
+        self.assertEqual(found, [{'prompt': 'the cut', 'messages': ['Kept.']}])
+
+    def test_a_prompt_with_a_tag_in_it_is_a_prompt(self):
+        for typed in ('<b>bold</b> and more', 'fix the <div> tag', 'see <a_b>x</a_b>.'):
+            self.assertIsNone(self.codex.INJECTED.fullmatch(typed), typed)
+
+    def test_a_missing_reader_names_the_file_to_write(self):
+        with self.assertRaises(self.copy.sessions.NoTranscript) as refused:
+            self.codex.find(self.pane(self.SID), [])
+        self.assertIn(self.codex.reader_file(), str(refused.exception))
+        self.assertIn('codex_reader.py', str(refused.exception))
+
+    def test_a_reader_that_cannot_load_says_so(self):
+        for body in ('raise RuntimeError("no")\n', 'x = 1\n'):
+            reader = os.path.join(self.room, 'bad.py')
+            pathlib.Path(reader).write_text(body)
+            self.configure(reader)
+            with self.assertRaises(self.copy.sessions.NoTranscript) as refused:
+                self.codex.find(self.pane(self.SID), [])
+            self.assertIn(reader, str(refused.exception))
+
+    def test_the_reader_does_not_touch_the_path_of_the_picker(self):
+        self.configure()
+        before = list(sys.path)
+        self.codex.load_reader()
+        self.assertEqual(sys.path, before)
+        self.assertIs(self.copy.sessions, sys.modules['sessions'])
+
+    def test_the_id_names_the_rollout(self):
+        self.configure()
+        path = self.rollout(self.SID)
+        self.rollout('bbbb2222')
+        self.assertEqual(self.codex.find(self.pane(self.SID), []), path)
+
+    def test_an_id_that_is_no_id_is_not_searched(self):
+        self.configure()
+        self.rollout(self.SID)
+        pane = self.pane('*')
+        self.assertIsNone(self.codex._session_id(pane))
+
+    def test_without_an_id_the_only_rollout_of_the_directory_answers(self):
+        self.configure()
+        path = self.rollout(self.SID)
+        self.rollout('cccc3333', cwd='/elsewhere')
+        self.rollout('dddd4444', source='exec')
+        self.assertEqual(self.codex.find(self.pane(), [self.pane()]), path)
+
+    def test_a_rollout_that_another_pane_holds_is_not_taken(self):
+        self.configure()
+        path = self.rollout(self.SID)
+        self.rollout('bbbb2222')
+        panes = [self.pane(), self.pane('bbbb2222', 'p2')]
+        self.assertEqual(self.codex.find(panes[0], panes), path)
+
+    def test_two_rollouts_of_a_directory_are_refused(self):
+        self.configure()
+        self.rollout(self.SID)
+        self.rollout('bbbb2222')
+        with self.assertRaises(self.copy.sessions.NoTranscript) as refused:
+            self.codex.find(self.pane(), [self.pane()])
+        self.assertIn('send a prompt', str(refused.exception))
+
+    def test_an_old_rollout_runs_in_no_pane(self):
+        self.configure()
+        path = self.rollout(self.SID)
+        os.utime(path, (1, 1))
+        with self.assertRaises(self.copy.sessions.NoTranscript):
+            self.codex.find(self.pane(), [self.pane()])
+
+    def test_the_prompt_box_key_is_refused_on_codex(self):
+        book = [self.copy.paged('q', ['```sh\nls\n```'])]
+        state = self.copy.opened(book)
+        with self.assertRaises(self.copy.Refused) as refused:
+            self.copy.prepared('claude', state, book[0], on_codex=True)
+        self.assertEqual(str(refused.exception),
+                         '! is for Claude: $ copies the code for a shell')
+        self.assertEqual(self.copy.prepared('shell', state, book[0], on_codex=True)[0], 'ls')
+
+    def test_the_footer_and_the_help_leave_claude_out_on_codex(self):
+        self.assertNotIn('Claude', self.copy.CODEX_FOOTER)
+        rows = self.copy.helped(self.copy.LETTERS, on_codex=True)
+        self.assertFalse([what for _, what in rows if 'Claude' in what])
+        self.assertTrue([what for _, what in self.copy.helped(self.copy.LETTERS)
+                         if 'Claude' in what])
+
+    def test_a_run_of_codex_starts_no_waiter_and_says_so(self):
+        running = self.copy.running
+        agent, shell = {'pane_id': 'p1'}, {'pane_id': 'p2'}
+        patched = unittest.mock.patch.dict(
+            os.environ, {'XDG_STATE_HOME': os.path.join(self.room, 'state')})
+        with patched:
+            silent = running.prepare(agent, shell, 'bash', day='d', wake=False)
+            told = running.prepare(agent, shell, 'bash', day='e')
+        silent, told = (pathlib.Path(run, 'run').read_text() for run in (silent, told))
+        self.assertNotIn('waking.py', silent)
+        self.assertIn('Codex does not hear of this run', silent)
+        self.assertIn('waking.py', told)
+        self.assertIn('Claude hears of this run', told)
+
+    def test_the_key_on_a_codex_pane_reads_its_rollout(self):
+        """The whole path, from the pane that Herdr reports to the blocks."""
+        import server
+        self.configure()
+        shutil.copy(self.FIXTURE, os.path.join(
+            self.day, f'rollout-2026-01-02T10-00-00-{self.SID}.jsonl'))
+        pane = {'pane_id': 'w9:p1', 'tab_id': 'w9:t1', 'workspace_id': 'w9', 'cwd': self.CWD,
+                'focused': False, 'agent': 'codex', 'agent_status': 'idle',
+                'agent_session': {'kind': 'id', 'value': self.SID},
+                'terminal_title': 'codex', 'terminal_title_stripped': 'codex'}
+        server.WORLD['panes'].append(pane)
+        self.addCleanup(server.WORLD['panes'].remove, pane)
+        out = run(HERDR_PANE_ID='w9:p1')
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertEqual(out.stdout, 'paragraph  Still here.\n')
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

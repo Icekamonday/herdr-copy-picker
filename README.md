@@ -1,6 +1,6 @@
 # herdr-copy-picker
 
-A Herdr plugin that copies the blocks of Claude Code's answers as Claude wrote them, or puts their commands in Claude's prompt box or in a shell of the tab.
+A Herdr plugin that copies the blocks of Claude Code's and Codex's answers as the agent wrote them, or puts their commands in a shell of the tab or, for Claude Code, in its prompt box.
 
 ![The picker copies the code blocks of an answer, then puts them in Claude's prompt box](docs/demo-copy.gif)
 
@@ -27,7 +27,7 @@ A plugin manifest can't declare a key, so add the binding to `~/.config/herdr/co
 key = "prefix+y"
 type = "shell"
 command = "herdr plugin action invoke pick --plugin herdr-copy-picker"
-description = "copy a block of Claude's last answers"
+description = "copy a block of the agent's last answers"
 ```
 
 Then reload the configuration with `herdr server reload-config`.
@@ -102,6 +102,27 @@ The waiter types only into a box that can take a line. Claude must not be workin
 
 If two runs of one Claude end together, the second wake waits for the turn that the first one starts. For that, each waiter takes a lock on the pane of Claude: an empty file `wake-<pane id>.lock` in `~/.local/state/herdr-copy-picker/`, next to `runs/`. These files are harmless, and you can delete them when no run is waiting.
 
+## Codex
+
+On a pane that runs Codex, the same key opens the same picker over the answers of the session. The picker tells the agent of the pane from what Herdr reports. An answer is the last message of a turn, and `w` shows the commentary before it.
+
+The picker reads a rollout through `codex_reader.py`, a module of a separate Herdr setup, and keeps no copy of it. Write the path of that file in `~/.config/herdr-copy-picker/codex-reader`:
+
+```
+~/dev/herdr/bin/codex_reader.py
+```
+
+Without that file, a Codex pane gets a message that names it, and a Claude Code pane works as before.
+
+The picker finds the rollout by the session id that Herdr holds. Without an id, it takes the rollout of the directory of the pane if a single recent session ran there, and otherwise asks you to send a prompt, which reports the id.
+
+| Key | On Codex |
+|---|---|
+| `Enter`, `$`, `A` and every move | as on Claude Code |
+| `v` | as on Claude Code |
+| `*` | the run works, but Codex doesn't hear of it: read the files of the run yourself |
+| `!` | refused, since it is the shell mark of Claude Code's prompt box |
+
 ## Rebind the keys
 
 To give an action another key, write one `action = key` line per binding in `~/.config/herdr-copy-picker/keys`, or in `$XDG_CONFIG_HOME/herdr-copy-picker/keys` if you set that variable:
@@ -149,7 +170,8 @@ Each line adds to the host directory, and never replaces it. The optional second
 - The `v` key puts the code in bash, zsh or fish and sends no Enter, without the control characters. When you press Enter, the shell runs the code with your rights, so read it first. If bracketed paste is off in that shell, each line runs as it arrives.
 - The wake that the waiter types into Claude's prompt box holds the name of the run, the status of each step and the directory of the run. It never holds what a step wrote.
 - `script` follows a link planted at the path of its log. If your agent can write the runs directory, it can plant one and make the shell write over another of your files. If it can write the directory above, it can also hold the lock of a wake and keep Claude from hearing of its runs. Check that the sandbox of your agent can't write `~/.local/state/herdr-copy-picker`.
-- Herdr doesn't review or sandbox plugins. This one reads your Claude Code transcripts and drives panes through the Herdr socket: read `bin/` before you install it.
+- The `codex-reader` file names Python code that the picker runs on a Codex pane. Check that the sandbox of your agent can't write that file or the module it names.
+- Herdr doesn't review or sandbox plugins. This one reads your Claude Code transcripts and Codex rollouts and drives panes through the Herdr socket: read `bin/` before you install it.
 
 ## Development
 

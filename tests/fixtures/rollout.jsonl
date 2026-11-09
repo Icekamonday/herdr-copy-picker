@@ -1,0 +1,22 @@
+{"timestamp": "2026-01-02T10:00:00Z", "type": "session_meta", "payload": {"id": "aaaa1111", "cwd": "/home/user/dev/app", "source": "cli", "cli_version": "0.0.0"}}
+{"timestamp": "2026-01-02T10:00:01Z", "type": "world_state", "payload": {}}
+{"timestamp": "2026-01-02T10:00:01Z", "type": "turn_context", "payload": {"cwd": "/home/user/dev/app", "model": "a-model"}}
+{"timestamp": "2026-01-02T10:00:02Z", "type": "response_item", "payload": {"type": "message", "role": "developer", "content": [{"type": "input_text", "text": "<skills_instructions>\nsome skills\n</skills_instructions>"}]}}
+{"timestamp": "2026-01-02T10:00:03Z", "type": "response_item", "payload": {"type": "message", "role": "developer", "content": [{"type": "input_text", "text": "plain instructions"}]}}
+{"timestamp": "2026-01-02T10:00:04Z", "type": "response_item", "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "<environment_context>\n  <cwd>/home/user/dev/app</cwd>\n</environment_context>"}]}}
+{"timestamp": "2026-01-02T10:00:05Z", "type": "event_msg", "payload": {"type": "task_started"}}
+{"timestamp": "2026-01-02T10:00:06Z", "type": "response_item", "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "what is the date?"}]}}
+{"timestamp": "2026-01-02T10:00:07Z", "type": "response_item", "payload": {"type": "message", "role": "assistant", "phase": "final_answer", "content": [{"type": "output_text", "text": "Run this:\n\n```sh\ndate\n```"}]}}
+{"timestamp": "2026-01-02T10:00:08Z", "type": "event_msg", "payload": {"type": "task_complete"}}
+{"timestamp": "2026-01-02T10:00:09Z", "type": "response_item", "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "and the tests?"}]}}
+{"timestamp": "2026-01-02T10:00:10Z", "type": "response_item", "payload": {"type": "reasoning", "summary": []}}
+{"timestamp": "2026-01-02T10:00:11Z", "type": "response_item", "payload": {"type": "message", "role": "assistant", "phase": "commentary", "content": [{"type": "output_text", "text": "Looking."}]}}
+{"timestamp": "2026-01-02T10:00:12Z", "type": "response_item", "payload": {"type": "function_call", "name": "shell", "arguments": "{}", "call_id": "c1"}}
+{"timestamp": "2026-01-02T10:00:13Z", "type": "response_item", "payload": {"type": "function_call_output", "call_id": "c1", "output": "a tool wrote this"}}
+{"timestamp": "2026-01-02T10:00:14Z", "type": "event_msg", "payload": {"type": "item_completed"}}
+{"timestamp": "2026-01-02T10:00:15Z", "type": "response_item", "payload": {"type": "message", "role": "assistant", "phase": "final_answer", "content": [{"type": "output_text", "text": "Then:\n\n```sh\nmake test\n```"}]}}
+{"timestamp": "2026-01-02T10:00:16Z", "type": "compacted", "payload": {"message": "a summary", "replacement_history": []}}
+{"timestamp": "2026-01-02T10:00:17Z", "type": "response_item", "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "A summary of the work so far."}]}}
+{"timestamp": "2026-01-02T10:00:18Z", "type": "response_item", "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "and after the compaction?"}]}}
+{"timestamp": "2026-01-02T10:00:19Z", "type": "response_item", "payload": {"type": "message", "role": "assistant", "phase": "final_answer", "content": [{"type": "output_text", "text": "Still here."}]}}
+{"timestamp": "2026-01-02T10:00:20Z", "type": "token_usage_record", "payload": {}}

@@ -81,14 +81,7 @@ while IFS= read -r line; do
     fi
     printf '%s\\n' "$line" >> "$run/$n.sh"
 done
-# the agent hears of the end of the run from a waiter that outlives this
-# shell, so a Ctrl+C or a shell that closes is told too
-waiting=
-if {waiter} "$run" "$$"; then
-    waiting=1
-else
-    echo "Claude will not hear of this run when it ends" >&2
-fi
+{wait}
 input=/dev/null
 if (exec < /dev/tty) 2>/dev/null; then input=/dev/tty; fi
 n=1
@@ -104,10 +97,22 @@ while [ -f "$run/$n.sh" ]; do
     n=$((n + 1))
 done
 mark "=== DONE"
+{told}
+'''
+WAIT = '''\
+# the agent hears of the end of the run from a waiter that outlives this
+# shell, so a Ctrl+C or a shell that closes is told too
+waiting=
+if {waiter} "$run" "$$"; then
+    waiting=1
+else
+    echo "Claude will not hear of this run when it ends" >&2
+fi'''
+TOLD = '''\
 if [ -n "$waiting" ]; then
     echo "Claude hears of this run once its prompt box is free. To cancel, run: touch $run/{quiet}"
-fi
-'''
+fi'''
+UNTOLD = 'echo "Codex does not hear of this run: its files are in $run"'
 
 
 class NoRun(Exception):
@@ -216,7 +221,7 @@ def _fresh(root, day):
         return path
 
 
-def prepare(agent, shell, name, day=None, again='*'):
+def prepare(agent, shell, name, day=None, again='*', wake=True):
     """Write the script of a run in the shell of that name, and return the
     directory of the run. A run typed twice names the key of a new run,
     given as again."""
@@ -229,8 +234,9 @@ def prepare(agent, shell, name, day=None, again='*'):
     with open(os.path.join(run, 'run'), 'x') as fp:
         fp.write(RUNNER.format(run=shlex.quote(run), agent=shlex.quote(agent['pane_id']),
                                shell=shlex.quote(shell['pane_id']), name=shlex.quote(name),
-                               step=STEP, waiter=shlex.join(WAITER), again=shlex.quote(again),
-                               ctrl_c=waking.CTRL_C, quiet=waking.QUIET))
+                               step=STEP, again=shlex.quote(again), ctrl_c=waking.CTRL_C,
+                               wait=WAIT.format(waiter=shlex.join(WAITER)) if wake else '',
+                               told=TOLD.format(quiet=waking.QUIET) if wake else UNTOLD))
     return run
 
 
