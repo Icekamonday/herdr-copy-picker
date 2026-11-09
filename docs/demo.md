@@ -34,13 +34,13 @@ The demo is two short recordings of the picker, on a Herdr of its own. The first
 4. Start Herdr with `herdr`. In its shell, install the plugin and the `prefix+y` key, and turn on the toasts of Herdr, which are off by default:
 
    ```sh
-   herdr plugin install Icekamonday/herdr-claude-copy &&
+   herdr plugin install Icekamonday/herdr-copy-picker &&
    cat >> ~/.config/herdr/config.toml <<'EOF' &&
 
    [[keys.command]]
    key = "prefix+y"
    type = "shell"
-   command = "herdr plugin action invoke pick --plugin herdr-claude-copy"
+   command = "herdr plugin action invoke pick --plugin herdr-copy-picker"
    description = "copy a block of Claude's last answers"
 
    [ui.toast]
