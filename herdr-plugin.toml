@@ -1,6 +1,6 @@
 id = "herdr-copy-picker"
 name = "Copy picker"
-version = "0.6.0"
+version = "0.6.1"
 min_herdr_version = "0.9.0"
 description = "Copy the code blocks of Claude Code and Codex answers without the indent and the line breaks of the screen, or run them in a shell of the tab"
 platforms = ["linux"]
